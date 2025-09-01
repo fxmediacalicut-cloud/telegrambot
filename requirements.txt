@@ -1,7 +1,5 @@
 python-telegram-bot==20.5
 qrcode
 Pillow
-Flask==3.0.3        # optional, only if needed
-httpx~=0.24.1        # <- change this
-gunicorn==23.0.0     # optional, only if using Flask
+httpx~=0.24.1
 APScheduler==3.6.3
