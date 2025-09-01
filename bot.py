@@ -455,5 +455,6 @@ def main():
     logging.info("Bot is starting...")
     app.run_polling()
 
-if __name__ == "__main__":
-    main()
+ # Run Flask web server for Railway
+    port = int(os.environ.get("PORT", 8000))
+    flask_app.run(host="0.0.0.0", port=port)
