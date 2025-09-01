@@ -5,29 +5,24 @@ import qrcode
 from io import BytesIO
 from datetime import datetime
 from flask import Flask, request
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler,
     ContextTypes, MessageHandler, ConversationHandler, filters
 )
 
-# ------------------- LOGGING SETUP -------------------
+# ------------------- LOGGING -------------------
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
     handlers=[logging.FileHandler("bot.log"), logging.StreamHandler()]
 )
 
-# ------------------- ENV VARIABLES -------------------
-TOKEN = os.getenv("BOT_TOKEN")
+# ------------------- BOT CONFIG -------------------
+TOKEN = os.getenv("BOT_TOKEN", "8244380773:AAGZE3T74x-IYHxDqJFja_j4vaGdpsni4Kk")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "564401901"))
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # e.g., "https://telegrambot-production-ee51.up.railway.app"
+WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://telegrambot-production-ee51.up.railway.app")
 
-if not TOKEN or not WEBHOOK_URL:
-    logging.error("BOT_TOKEN or WEBHOOK_URL not set in environment variables.")
-    exit(1)
-
-# ------------------- PRODUCT DATA -------------------
 PRODUCTS_FILE = "products.json"
 INITIAL_PRODUCTS = {
     "p1": {"name": "Product A", "price": 100, "access": "🔑 Access: https://google.com/a", "image": None},
@@ -35,6 +30,9 @@ INITIAL_PRODUCTS = {
     "p3": {"name": "Product C", "price": 300, "access": "🔑 Access: https://example.com/c", "image": None},
 }
 
+UPI_ID = "800846077@bharatpe"
+
+# ------------------- LOAD / SAVE PRODUCTS -------------------
 def load_products():
     if os.path.exists(PRODUCTS_FILE):
         try:
@@ -56,12 +54,11 @@ def save_products(products):
         logging.error("Failed to save products.json: %s", e)
 
 PRODUCTS = load_products()
-user_product = {}       # user_id -> product_code
-pending_txns = {}       # txn_id -> txn details
-awaiting_reasons = {}   # admin_id -> txn_id
-UPI_ID = "800846077@bharatpe"
+user_product = {}
+pending_txns = {}
+awaiting_reasons = {}
 
-# ------------------- TELEGRAM HANDLERS -------------------
+# ------------------- BOT HANDLERS -------------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not PRODUCTS:
         await update.message.reply_text("⚠️ No products available right now.")
@@ -89,10 +86,11 @@ async def product_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     caption_text = (
         f"🛒 You selected: {product['name']} (₹{amount})\n\n"
         f"💳 UPI ID: `{UPI_ID}`\n"
-        f"📌 Copy UPI link:\n`{upi_url}`\n\n"
+        f"📌 Copy this UPI link:\n`{upi_url}`\n\n"
         "📌 Or scan the QR above.\n\n"
         "👉 After payment, upload your payment screenshot here."
     )
+
     await query.message.reply_photo(photo=bio, caption=caption_text, parse_mode="Markdown")
 
 async def payment_screenshot(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -101,9 +99,9 @@ async def payment_screenshot(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if user_id not in user_product:
         await update.message.reply_text("⚠️ Please select a product first using /start.")
         return
-
     product_code = user_product[user_id]
     product = PRODUCTS[product_code]
+
     photo = update.message.photo[-1]
     file = await photo.get_file()
     os.makedirs("screenshots", exist_ok=True)
@@ -129,7 +127,6 @@ async def payment_screenshot(update: Update, context: ContextTypes.DEFAULT_TYPE)
             reply_markup=approve_reject_btns
         )
 
-# ------------------- ADMIN CALLBACKS -------------------
 async def approve_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -160,9 +157,7 @@ async def reject_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.message.reply_text(f"✏️ Type reason for rejecting transaction `{txn_id}`:", parse_mode="Markdown")
 
 async def rejection_reason_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID:
-        return
-    if ADMIN_ID not in awaiting_reasons:
+    if update.effective_user.id != ADMIN_ID or ADMIN_ID not in awaiting_reasons:
         return
     txn_id = awaiting_reasons.pop(ADMIN_ID)
     if txn_id not in pending_txns:
@@ -187,8 +182,11 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
     if hasattr(update, 'effective_message') and update.effective_message:
         await update.effective_message.reply_text("⚠️ An error occurred. Please try again later.")
 
-# ------------------- TELEGRAM APPLICATION -------------------
+# ------------------- FLASK SERVER -------------------
+flask_app = Flask(__name__)
 application = Application.builder().token(TOKEN).build()
+
+# Register handlers
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CallbackQueryHandler(product_callback, pattern="^p"))
 application.add_handler(CallbackQueryHandler(approve_callback, pattern="^approve_"))
@@ -196,9 +194,6 @@ application.add_handler(CallbackQueryHandler(reject_callback, pattern="^reject_"
 application.add_handler(MessageHandler(filters.PHOTO, payment_screenshot))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, rejection_reason_handler))
 application.add_error_handler(error_handler)
-
-# ------------------- FLASK SERVER -------------------
-flask_app = Flask(__name__)
 
 @flask_app.route("/", methods=["GET"])
 def index():
@@ -212,6 +207,7 @@ def webhook():
 
 if __name__ == "__main__":
     import asyncio
+    # Set webhook
     asyncio.run(application.bot.set_webhook(url=f"{WEBHOOK_URL}/{TOKEN}"))
     port = int(os.environ.get("PORT", 8000))
     flask_app.run(host="0.0.0.0", port=port)
