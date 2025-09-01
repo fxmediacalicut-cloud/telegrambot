@@ -18,11 +18,16 @@ logging.basicConfig(
     handlers=[logging.FileHandler("bot.log"), logging.StreamHandler()]
 )
 
-# ------------------- BOT SETUP -------------------
-TOKEN = os.getenv("BOT_TOKEN")  # Use environment variable
+# ------------------- ENV VARIABLES -------------------
+TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "564401901"))
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Railway project URL
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # e.g., "https://telegrambot-production-ee51.up.railway.app"
 
+if not TOKEN or not WEBHOOK_URL:
+    logging.error("BOT_TOKEN or WEBHOOK_URL not set in environment variables.")
+    exit(1)
+
+# ------------------- PRODUCT DATA -------------------
 PRODUCTS_FILE = "products.json"
 INITIAL_PRODUCTS = {
     "p1": {"name": "Product A", "price": 100, "access": "🔑 Access: https://google.com/a", "image": None},
@@ -30,7 +35,6 @@ INITIAL_PRODUCTS = {
     "p3": {"name": "Product C", "price": 300, "access": "🔑 Access: https://example.com/c", "image": None},
 }
 
-# ------------------- LOAD / SAVE -------------------
 def load_products():
     if os.path.exists(PRODUCTS_FILE):
         try:
@@ -52,12 +56,12 @@ def save_products(products):
         logging.error("Failed to save products.json: %s", e)
 
 PRODUCTS = load_products()
-user_product = {}
-pending_txns = {}
-awaiting_reasons = {}
+user_product = {}       # user_id -> product_code
+pending_txns = {}       # txn_id -> txn details
+awaiting_reasons = {}   # admin_id -> txn_id
 UPI_ID = "800846077@bharatpe"
 
-# ------------------- BOT HANDLERS -------------------
+# ------------------- TELEGRAM HANDLERS -------------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not PRODUCTS:
         await update.message.reply_text("⚠️ No products available right now.")
@@ -74,7 +78,6 @@ async def product_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_product[user_id] = product_code
     product = PRODUCTS[product_code]
 
-    # Generate QR
     amount = product['price']
     upi_url = f"upi://pay?pa=BHARATPE.8000846077@fbpe&pn=VIDEO EDITORS IN KERALA&am={amount}&cu=INR"
     qr_img = qrcode.make(upi_url)
@@ -98,6 +101,7 @@ async def payment_screenshot(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if user_id not in user_product:
         await update.message.reply_text("⚠️ Please select a product first using /start.")
         return
+
     product_code = user_product[user_id]
     product = PRODUCTS[product_code]
     photo = update.message.photo[-1]
@@ -177,23 +181,14 @@ async def rejection_reason_handler(update: Update, context: ContextTypes.DEFAULT
     )
     await update.message.reply_text(f"✅ Sent rejection reason to buyer of Txn {txn_id}.")
 
-# ------------------- CONVERSATIONS -------------------
-ADD_CODE, ADD_NAME, ADD_PRICE, ADD_ACCESS, ADD_IMAGE = range(5)
-REMOVE_SELECT = 0
-
-# Add and remove product handlers remain same
-# (you can copy your existing addproduct_* and removeproduct_* functions here)
-
 # ------------------- ERROR HANDLER -------------------
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     logging.error(msg="Exception while handling update:", exc_info=context.error)
     if hasattr(update, 'effective_message') and update.effective_message:
         await update.effective_message.reply_text("⚠️ An error occurred. Please try again later.")
 
-# ------------------- SETUP TELEGRAM APPLICATION -------------------
+# ------------------- TELEGRAM APPLICATION -------------------
 application = Application.builder().token(TOKEN).build()
-
-# --- Register handlers ---
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CallbackQueryHandler(product_callback, pattern="^p"))
 application.add_handler(CallbackQueryHandler(approve_callback, pattern="^approve_"))
@@ -202,7 +197,7 @@ application.add_handler(MessageHandler(filters.PHOTO, payment_screenshot))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, rejection_reason_handler))
 application.add_error_handler(error_handler)
 
-# --- Flask server ---
+# ------------------- FLASK SERVER -------------------
 flask_app = Flask(__name__)
 
 @flask_app.route("/", methods=["GET"])
@@ -217,7 +212,6 @@ def webhook():
 
 if __name__ == "__main__":
     import asyncio
-    # Set webhook
     asyncio.run(application.bot.set_webhook(url=f"{WEBHOOK_URL}/{TOKEN}"))
     port = int(os.environ.get("PORT", 8000))
     flask_app.run(host="0.0.0.0", port=port)
