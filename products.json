@@ -1,0 +1,14 @@
+{
+  "p1": {
+    "name": "lightroom",
+    "price": 100,
+    "access": "https://www.amazon.in/SanDisk-Portable-Smartphone-Compatible-Warranty/dp/B08GTYFC37/ref=sr_1_5?dib=eyJ2IjoiMSJ9.Dd9eEB-11uxvqOb9X3TJc_jaQvIJvKnqENco6AJ6Dr67u1SF_ORe1EdCBOMe_mO2bDM0PkdVoZnmSdm0GbKB9wfj27BgIXQvlpPSXACKiXQrSfBbJBiJbz_Sq_LeUm6XSmr3JBNkzCx03WOSYYxtGLzB0gVNVf_YyUeDBgDz_UkK6NqCDH5wxCaCB0C9aHNK6zLpqEfwU8hB7GnN3TkFunX8UwvT2_Ucnf1Z6VtlNn227RXC7na_eZ22NIpc5SioSw6sthOeUUhguYd5JaKsuk3QNLu0l7_SxZlV-lyaqFA.2Op6jeswK3K2wYkZw2FykqpneE_gTblhKKyp4xQhSaQ&dib_tag=se&qid=1756726383&refinements=p_89%3ASamsung%7CSanDisk&rnid=3837712031&s=computers&sr=1-5&th=1",
+    "image": "AgACAgUAAxkBAAIBCGi1mqwu2p5F5fGArqbctE0fD4A0AALMxjEbhR2xVa1Pxu4Y0OcOAQADAgADeQADNgQ"
+  },
+  "p2": {
+    "name": "FINAL CUT PRO",
+    "price": 200,
+    "access": "https://chatgpt.com/c/68b5997e-c238-8320-9988-9010f7a3e4f7",
+    "image": "AgACAgUAAxkBAAIBEGi1muCSkOcRaDEqoL_iH41JOw1cAALOxjEbhR2xVRF5qs1CoV0yAQADAgADeQADNgQ"
+  }
+}
